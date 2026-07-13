@@ -1,0 +1,1213 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}  // ─── Users & Authentication ─────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  STAFF
+  CASHIER
+  WAREHOUSE_STAFF
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  avatar        String?
+  role          UserRole   @default(STAFF)
+  roleId        String?
+  roleObj       Role?      @relation(fields: [roleId], references: [id])
+  isActive      Boolean    @default(true)
+  merchantId    String?
+  merchant      Merchant?  @relation(fields: [merchantId], references: [id])
+  branchId      String?
+  branch        Branch?    @relation(fields: [branchId], references: [id])
+  employeeId    String?    @unique
+  employee      Employee?  @relation(fields: [employeeId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  activityLogs           ActivityLog[]
+  stockAdjustments       StockAdjustment[] @relation("RequestedAdjustments")
+  approvedAdjustments    StockAdjustment[] @relation("ApprovedAdjustments")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Merchant ───────────────────────────────────────────────────────────────
+
+model Merchant {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  companyName  String
+  legalName    String?
+  address      String?  @db.Text
+  phone        String?
+  email        String?
+  taxId        String?
+  logo         String?
+  currency     String   @default("IDR")
+  timezone     String   @default("Asia/Jakarta")
+  isActive     Boolean  @default(true)
+
+  // Subscription fields
+  subscriptionPlan   String?   @default("monthly") // "monthly", "yearly", "trial", "lifetime"
+  subscriptionStatus String?   @default("active")  // "active", "expired", "cancelled", "trial"
+  subscriptionStart  DateTime?
+  subscriptionEnd    DateTime?
+  subscriptionReminderSent Boolean @default(false) // Track if 3-month reminder was sent
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        User[]
+  roles        Role[]
+  branches     Branch[]
+  warehouses   Warehouse[]
+  taxSettings  TaxSetting[]
+  currencies   CurrencyConfig[]
+
+  @@map("merchants")
+}
+
+// ─── Branches & E-Commerce Connectors ───────────────────────────────────────
+
+model Branch {
+  id              String            @id @default(cuid())
+  code            String            @unique
+  name            String
+  address         String?           @db.Text
+  phone           String?
+  email           String?
+  isActive        Boolean           @default(true)
+  merchantId      String
+  merchant        Merchant          @relation(fields: [merchantId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  users           User[]
+  ecommerceConnector EcommerceConnector?
+  products        Product[]
+  warehouses      WarehouseBranch[]
+  sales             Sale[]
+  geolocationConfigs GeolocationConfig[]
+  purchaseOrders    PurchaseOrder[]
+
+  @@map("branches")
+}
+
+enum EcommercePlatform {
+  TOKOPEDIA
+  SHOPEE
+  BUKALAPAK
+  LAZADA
+  BLIBLI
+  OTHER
+}
+
+model EcommerceConnector {
+  id              String            @id @default(cuid())
+  platform        EcommercePlatform
+  platformName    String?
+  apiEndpoint     String
+  apiKey          String            @db.Text
+  apiSecret       String?           @db.Text
+  storeName       String?
+  isActive        Boolean           @default(true)
+  lastSyncAt      DateTime?
+  syncInterval    Int               @default(15) // minutes
+  webhookSecret   String?           @db.Text
+  config          Json?             // Additional platform-specific config
+  branchId        String            @unique
+  branch          Branch            @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  sales           Sale[]
+  orderStatuses   OrderStatus[]
+  syncLogs        SyncLog[]
+
+  @@map("ecommerce_connectors")
+}
+
+model SyncLog {
+  id              String            @id @default(cuid())
+  connectorId     String
+  connector       EcommerceConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  syncType        String            // "products", "orders", "stock", "inventory"
+  status          String            // "success", "failed", "in_progress"
+  message         String?           @db.Text
+  details         Json?
+  startedAt       DateTime          @default(now())
+  completedAt     DateTime?
+
+  @@map("sync_logs")
+}
+
+// ─── Products ───────────────────────────────────────────────────────────────
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.Text
+  parentId    String?
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+
+  @@map("categories")
+}
+
+enum SKUGenerationMethod {
+  AUTO
+  MANUAL
+}
+
+model Product {
+  id                String             @id @default(cuid())
+  name              String
+  description       String?            @db.Text
+  sku               String             @unique
+  skuMethod         SKUGenerationMethod @default(AUTO)
+  barcode           String?
+  categoryId        String
+  category          Category           @relation(fields: [categoryId], references: [id])
+  costPerUnit       Decimal            @default(0) @db.Decimal(15, 2)
+  sellPerUnit       Decimal            @default(0) @db.Decimal(15, 2)
+  unit              String             @default("pcs")
+  weight            Decimal?           @db.Decimal(10, 2)
+  isActive          Boolean            @default(true)
+  image             String?
+  notes             String?            @db.Text
+  branchId          String?
+  branch            Branch?            @relation(fields: [branchId], references: [id])
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  warehouseStock       WarehouseStock[]
+  warehouseStockMovements WarehouseStockMovement[]
+  stockMovements       StockMovement[]
+  thresholds           StockThreshold[]
+  purchaseOrderItems   PurchaseOrderItem[]
+  saleItems            SaleItem[]
+  orderTrackings       OrderTracking[]
+  stockRequestItems   StockRequestItem[]
+  stockAdjustments    StockAdjustment[]
+
+  // ─── Phase 1 additions ────────────────────────────────────────────────
+  uoms                 ProductUom[]
+  images               ProductImage[]
+  suppliers            SupplierProduct[]
+
+  // ─── Variant / Sub-SKU support ───────────────────────────────────────
+  hasVariants      Boolean            @default(false)
+  parentProductId  String?
+  parentProduct    Product?           @relation("ProductVariants", fields: [parentProductId], references: [id])
+  childVariants    Product[]          @relation("ProductVariants")
+
+  variantGroups    ProductVariantGroup[]
+  variantOptionAssignments ProductVariantOptionAssignment[]
+
+  @@map("products")
+}
+
+// ─── Phase 1: Unit of Measure (UoM) & Product Images ──────────────────────
+
+// ─── Product Variant / Sub-SKU ─────────────────────────────────────────
+
+model ProductVariantGroup {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String   // "Size", "Color", "Gender", "Material", etc.
+  sortOrder Int      @default(0)
+
+  options   ProductVariantGroupOption[]
+
+  @@map("product_variant_groups")
+}
+
+model ProductVariantGroupOption {
+  id        String   @id @default(cuid())
+  groupId   String
+  group     ProductVariantGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name      String   // "Small", "Red", "Male"
+  value     String   // "S", "RD", "M" (short code)
+  sortOrder Int      @default(0)
+
+  variantAssignments ProductVariantOptionAssignment[]
+
+  @@map("product_variant_group_options")
+}
+
+model ProductVariantOptionAssignment {
+  id        String   @id @default(cuid())
+  variantId String
+  variant   Product  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  optionId  String
+  option    ProductVariantGroupOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, optionId])
+  @@map("product_variant_option_assignments")
+}
+
+// ─── Phase 1: Unit of Measure (UoM) & Product Images ──────────────────────
+
+model Uom {
+  id           String       @id @default(cuid())
+  name         String       @unique        // "Pcs", "Carton", "Box", "Kg", "Liter"
+  abbreviation String                      // "pcs", "ctn", "bx", "kg", "ltr"
+  category     String       @default("unit") // "unit", "weight", "volume", "length"
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  productLinks ProductUom[]
+  saleItems    SaleItem[]
+
+  @@map("uoms")
+}
+
+model ProductUom {
+  id               String   @id @default(cuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  uomId            String
+  uom              Uom      @relation(fields: [uomId], references: [id])
+  isBase           Boolean  @default(false)   // Is this the smallest/base unit?
+  conversionToBase Int      @default(1)        // 1 of this UoM = N base units
+  sellPrice        Decimal? @db.Decimal(15, 2) // Optional override price for this UoM
+  costPrice        Decimal? @db.Decimal(15, 2) // Optional override cost for this UoM
+
+  @@unique([productId, uomId])
+  @@map("product_uoms")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   @db.Text
+  thumbnail String?  @db.Text      // Auto-resized thumbnail URL
+  alt       String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("product_images")
+}
+
+// ─── Phase 2&3: Suppliers & Stock Requests ─────────────────────────────────
+
+model Supplier {
+  id            String          @id @default(cuid())
+  code          String          @unique
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?         @db.Text
+  taxId         String?
+  paymentTerms  String?         // "net30", "net60", "cod"
+  bankName      String?
+  bankAccount   String?
+  isActive      Boolean         @default(true)
+  notes         String?         @db.Text
+  merchantId    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  products      SupplierProduct[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model SupplierProduct {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  unitCost   Decimal  @default(0) @db.Decimal(15, 2)
+  leadTime   Int?     // Days
+  isPreferred Boolean @default(false)
+
+  @@unique([supplierId, productId])
+  @@map("supplier_products")
+}
+
+enum StockRequestStatus {
+  PENDING
+  APPROVED
+  RELEASED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+}
+
+enum StockRequestPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model StockRequest {
+  id              String              @id @default(cuid())
+  requestNumber   String              @unique
+  warehouseId     String
+  warehouse       Warehouse           @relation(fields: [warehouseId], references: [id])
+  status          StockRequestStatus  @default(PENDING)
+  priority        StockRequestPriority @default(NORMAL)
+  notes           String?             @db.Text
+  requestedById   String?
+  approvedById    String?
+  approvedAt      DateTime?
+  purchaseOrderId String?             // Linked PO when released
+  purchaseOrder   PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id])
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  items           StockRequestItem[]
+
+  @@map("stock_requests")
+}
+
+model StockRequestItem {
+  id              String       @id @default(cuid())
+  stockRequestId  String
+  stockRequest    StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product      @relation(fields: [productId], references: [id])
+  quantityRequested Int
+  quantityApproved Int?
+  quantityFulfilled Int?
+  notes           String?      @db.Text
+
+  @@map("stock_request_items")
+}
+
+// ─── Warehouses & Stock ─────────────────────────────────────────────────────
+
+model Warehouse {
+  id            String            @id @default(cuid())
+  code          String            @unique
+  name          String
+  type          WarehouseType     @default(MAIN)
+  address       String?           @db.Text
+  phone         String?
+  isActive      Boolean           @default(true)
+  merchantId    String
+  merchant      Merchant          @relation(fields: [merchantId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  branches      WarehouseBranch[]
+  stock         WarehouseStock[]
+  stockMovementsFrom WarehouseStockMovement[] @relation("StockMovementFrom")
+  stockMovementsTo   WarehouseStockMovement[] @relation("StockMovementTo")
+  thresholds         StockThreshold[]
+  purchaseOrders     PurchaseOrder[]
+  stockRequests      StockRequest[]
+  stockAdjustments   StockAdjustment[]
+
+  @@map("warehouses")
+}
+
+enum WarehouseType {
+  MAIN
+  TRANSIT
+  BRANCH
+}
+
+model WarehouseBranch {
+  id          String    @id @default(cuid())
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, branchId])
+  @@map("warehouse_branches")
+}
+
+model WarehouseStock {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  quantity    Int      @default(0)
+  reservedQty Int      @default(0)
+  minStock    Int      @default(0)
+  maxStock    Int?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, warehouseId])
+  @@map("warehouse_stock")
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+  RETURN
+  SALE
+  PURCHASE
+  CONVERSION
+}
+
+model WarehouseStockMovement {
+  id              String       @id @default(cuid())
+  reference       String       @unique
+  type            MovementType
+  productId       String
+  product         Product      @relation(fields: [productId], references: [id])
+  fromWarehouseId String?
+  fromWarehouse   Warehouse?   @relation("StockMovementFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouseId   String?
+  toWarehouse     Warehouse?   @relation("StockMovementTo", fields: [toWarehouseId], references: [id])
+  quantity        Int
+  referenceType   String?      // "purchase_order", "sale", "transfer", "adjustment"
+  referenceId     String?
+  notes           String?      @db.Text
+  createdById     String?
+  createdAt       DateTime     @default(now())
+
+  stockMovements  StockMovement[]
+
+  @@map("warehouse_stock_movements")
+}
+
+model StockMovement {
+  id                    String                  @id @default(cuid())
+  productId             String
+  product               Product                 @relation(fields: [productId], references: [id])
+  warehouseStockMovementId String?
+  warehouseStockMovement WarehouseStockMovement? @relation(fields: [warehouseStockMovementId], references: [id])
+  type                  String                  // "in", "out", "transfer_in", "transfer_out"
+  quantity              Int
+  previousStock         Int
+  newStock              Int
+  reference             String?
+  notes                 String?                 @db.Text
+  createdById           String?
+  createdAt             DateTime                @default(now())
+
+  @@map("stock_movements")
+}
+
+model StockThreshold {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  minLevel    Int      @default(0)
+  maxLevel    Int?
+  alert       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, warehouseId])
+  @@map("stock_thresholds")
+}
+
+// ─── Procurement & Purchase Orders ──────────────────────────────────────────
+
+enum POStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id              String         @id @default(cuid())
+  poNumber        String         @unique
+  supplierId      String?
+  supplier        Supplier?      @relation(fields: [supplierId], references: [id])
+  supplierName    String
+  supplierContact String?
+  status          POStatus       @default(DRAFT)
+  notes           String?        @db.Text
+  totalAmount     Decimal        @default(0) @db.Decimal(15, 2)
+  taxAmount       Decimal        @default(0) @db.Decimal(15, 2)
+  grandTotal      Decimal        @default(0) @db.Decimal(15, 2)
+  branchId        String?
+  branch          Branch?        @relation(fields: [branchId], references: [id])
+  warehouseId     String?
+  warehouse       Warehouse?     @relation(fields: [warehouseId], references: [id])
+  requestedById   String?
+  approvedById    String?
+  receivedAt      DateTime?
+  expectedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  items           PurchaseOrderItem[]
+  stockRequests   StockRequest[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id])
+  quantity        Int
+  receivedQty     Int           @default(0)
+  unitCost        Decimal       @default(0) @db.Decimal(15, 2)
+  totalCost       Decimal       @default(0) @db.Decimal(15, 2)
+  notes           String?       @db.Text
+
+  @@map("purchase_order_items")
+}
+
+// ─── Sales ──────────────────────────────────────────────────────────────────
+
+enum SaleStatus {
+  PENDING
+  PROCESSING
+  PACKAGING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+model Sale {
+  id              String            @id @default(cuid())
+  orderNumber     String            @unique
+  externalOrderId String?           // Order ID from e-commerce platform
+  status          SaleStatus        @default(PENDING)
+  customerName    String?
+  customerEmail   String?
+  customerPhone   String?
+  shippingAddress String?           @db.Text
+  subtotal        Decimal           @default(0) @db.Decimal(15, 2)
+  taxAmount       Decimal           @default(0) @db.Decimal(15, 2)
+  shippingCost    Decimal           @default(0) @db.Decimal(15, 2)
+  discountAmount  Decimal           @default(0) @db.Decimal(15, 2)
+  totalAmount     Decimal           @default(0) @db.Decimal(15, 2)
+  currency        String            @default("IDR")
+  exchangeRate    Decimal           @default(1) @db.Decimal(15, 4)
+  notes           String?           @db.Text
+  connectorId     String?
+  connector       EcommerceConnector? @relation(fields: [connectorId], references: [id])
+  branchId        String
+  branch          Branch            @relation(fields: [branchId], references: [id])
+  orderDate       DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  items           SaleItem[]
+  orderStatuses   OrderStatus[]
+  orderTracking   OrderTracking?
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  uomId     String?
+  uom       Uom?    @relation(fields: [uomId], references: [id])
+  unitPrice Decimal @default(0) @db.Decimal(15, 2)
+  totalPrice Decimal @default(0) @db.Decimal(15, 2)
+
+  @@map("sale_items")
+}
+
+model OrderStatus {
+  id          String            @id @default(cuid())
+  saleId      String
+  sale        Sale              @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  connectorId String?
+  connector   EcommerceConnector? @relation(fields: [connectorId], references: [id])
+  status      String            // "pending", "processing", "packaging", "shipped", "delivered", "cancelled"
+  location    String?
+  description String?           @db.Text
+  updatedBy   String?
+  createdAt   DateTime          @default(now())
+
+  @@map("order_statuses")
+}
+
+model OrderTracking {
+  id              String   @id @default(cuid())
+  saleId          String   @unique
+  sale            Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  barcode         String?
+  qrCode          String?
+  status          String   @default("pending") // "pending","packaging","packed","handover","in_transit","delivered"
+  packagingBy     String?
+  handoverBy      String?
+  courier         String?
+  trackingNumber  String?
+  packagedAt      DateTime?
+  handedOverAt    DateTime?
+  deliveredAt     DateTime?
+  notes           String?  @db.Text
+  statusDuration  Int?      // track hours in current status for stale alerts
+  lastStatusChangeAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("order_tracking")
+}
+
+// ─── Currency & Tax ─────────────────────────────────────────────────────────
+
+model CurrencyConfig {
+  id         String   @id @default(cuid())
+  code       String   // "IDR", "USD", "SGD", etc.
+  name       String
+  symbol     String   // "Rp", "$", etc.
+  exchangeRate Decimal @default(1) @db.Decimal(15, 4)
+  isDefault  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([code, merchantId])
+  @@map("currency_configs")
+}
+
+model TaxSetting {
+  id         String   @id @default(cuid())
+  name       String   // "PPN 11%", "PPh 23", etc.
+  rate       Decimal  @db.Decimal(5, 2)
+  type       String   // "sales", "purchase", "both"
+  isActive   Boolean  @default(true)
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("tax_settings")
+}
+
+// ─── Financial Accounting ───────────────────────────────────────────────────
+
+model AccountType {
+  id   String @id @default(cuid())
+  code String @unique
+  name String // "Aset", "Kewajiban", "Ekuitas", "Pendapatan", "Beban"
+
+  accounts          ChartOfAccount[]
+  accountCategories AccountCategory[]
+
+  @@map("account_types")
+}
+
+model AccountCategory {
+  id           String           @id @default(cuid())
+  code         String
+  name         String
+  accountTypeId String
+  accountType  AccountType      @relation(fields: [accountTypeId], references: [id])
+  normalBalance String          // "debit" or "credit"
+
+  accounts     ChartOfAccount[]
+  @@unique([code, accountTypeId])
+  @@map("account_categories")
+}
+
+model ChartOfAccount {
+  id             String           @id @default(cuid())
+  accountCode    String           @unique
+  accountName    String
+  description    String?          @db.Text
+  categoryId     String?
+  category       AccountCategory? @relation(fields: [categoryId], references: [id])
+  accountTypeId  String?
+  accountType    AccountType?     @relation(fields: [accountTypeId], references: [id])
+  isActive       Boolean          @default(true)
+  balance        Decimal          @default(0) @db.Decimal(15, 2)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  journalEntries JournalEntry[]
+  expenses        Expense[]
+
+  @@map("chart_of_accounts")
+}
+
+model Journal {
+  id          String   @id @default(cuid())
+  journalNumber String @unique
+  description String?  @db.Text
+  date        DateTime
+  reference   String?  // Reference to source document (PO#, Sale#, etc.)
+  referenceType String? // "sale", "purchase", "adjustment", "payroll", "expense"
+  referenceId String?
+  notes       String?  @db.Text
+  postedAt    DateTime?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entries     JournalEntry[]
+  expenses    Expense[]
+  payrolls    Payroll[]
+
+  @@map("journals")
+}
+
+model JournalEntry {
+  id            String         @id @default(cuid())
+  journalId     String
+  journal       Journal        @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       ChartOfAccount @relation(fields: [accountId], references: [id])
+  debit         Decimal        @default(0) @db.Decimal(15, 2)
+  credit        Decimal        @default(0) @db.Decimal(15, 2)
+  description   String?        @db.Text
+
+  @@map("journal_entries")
+}
+
+// ─── Phase 5: Expenses Management ───────────────────────────────────────────
+
+enum ExpenseCategory {
+  OPERATIONAL
+  UTILITIES
+  RENT
+  TRANSPORTATION
+  MARKETING
+  OFFICE_SUPPLIES
+  PETTY_CASH
+  MAINTENANCE
+  SALARY
+  TAX
+  OTHER
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  expenseNumber String          @unique
+  description   String          @db.Text
+  category      ExpenseCategory @default(OPERATIONAL)
+  amount        Decimal         @db.Decimal(15, 2)
+  taxAmount     Decimal         @default(0) @db.Decimal(15, 2)
+  netAmount     Decimal         @default(0) @db.Decimal(15, 2)
+  date          DateTime
+  merchantId    String?
+  branchId      String?
+  accountId     String?         // Chart of Account link
+  account       ChartOfAccount? @relation(fields: [accountId], references: [id])
+  journalId     String?
+  journal       Journal?        @relation(fields: [journalId], references: [id])
+  isPettyCash   Boolean         @default(false)
+  isPosted      Boolean         @default(false)
+  receiptUrl    String?         @db.Text
+  notes         String?         @db.Text
+  createdById   String?
+  approvedById  String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("expenses")
+}
+
+// ─── Phase 5: Payroll ───────────────────────────────────────────────────────
+
+enum PayType {
+  DAILY
+  MONTHLY
+}
+
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+model Payroll {
+  id              String         @id @default(cuid())
+  payrollNumber   String         @unique
+  periodStart     DateTime       @db.Date
+  periodEnd       DateTime       @db.Date
+  payType         PayType        @default(MONTHLY)
+  status          PayrollStatus  @default(DRAFT)
+  totalGross      Decimal        @default(0) @db.Decimal(15, 2)
+  totalDeductions Decimal        @default(0) @db.Decimal(15, 2)
+  totalAllowances Decimal        @default(0) @db.Decimal(15, 2)
+  totalNet        Decimal        @default(0) @db.Decimal(15, 2)
+  postedToJournal Boolean        @default(false)
+  journalId       String?
+  journal         Journal?       @relation(fields: [journalId], references: [id])
+  notes           String?        @db.Text
+  createdById     String?
+  approvedById    String?
+  paidAt          DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  items           PayrollItem[]
+
+  @@map("payrolls")
+}
+
+model PayrollItem {
+  id            String    @id @default(cuid())
+  payrollId     String
+  payroll       Payroll   @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id])
+  baseSalary    Decimal   @default(0) @db.Decimal(15, 2)
+  daysWorked    Int?      @default(0)
+  dailyRate     Decimal?  @db.Decimal(15, 2)
+  grossAmount   Decimal   @default(0) @db.Decimal(15, 2)
+  deductions    Json?     // Array of {name, amount}
+  allowances    Json?     // Array of {name, amount}
+  netAmount     Decimal   @default(0) @db.Decimal(15, 2)
+  notes         String?   @db.Text
+
+  @@map("payroll_items")
+}
+
+// ─── Employees & Payroll ────────────────────────────────────────────────────
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  RESIGNED
+  TERMINATED
+}
+
+model Employee {
+  id               String           @id @default(cuid())
+  employeeNumber   String           @unique
+  name             String
+  email            String?          @unique
+  phone            String?
+  position         String?
+  department       String?
+  baseSalary       Decimal          @default(0) @db.Decimal(15, 2)
+  payType          PayType          @default(MONTHLY)
+  bankName         String?
+  bankAccount      String?
+  taxId            String?
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  joinDate         DateTime?
+  resignDate       DateTime?
+  address          String?          @db.Text
+  photo            String?
+  isActive         Boolean          @default(true)
+  merchantId       String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user             User?
+  attendances      Attendance[]
+  leaves           Leave[]
+  leaveBalances    LeaveBalance[]
+  shifts           EmployeeShift[]
+  payrollItems     PayrollItem[]
+
+  @@map("employees")
+}
+
+// ─── Attendance & Geolocation ───────────────────────────────────────────────
+
+model Attendance {
+  id             String   @id @default(cuid())
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  date           DateTime @db.Date
+  checkIn        DateTime?
+  checkOut       DateTime?
+  checkInPhoto   String?
+  checkOutPhoto  String?
+  checkInLat     Decimal? @db.Decimal(10, 7)
+  checkInLng     Decimal? @db.Decimal(10, 7)
+  checkOutLat    Decimal? @db.Decimal(10, 7)
+  checkOutLng    Decimal? @db.Decimal(10, 7)
+  status         String   @default("present") // "present", "late", "absent", "half_day", "leave"
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("attendances")
+}
+
+model GeolocationConfig {
+  id            String   @id @default(cuid())
+  name          String   // "Office Main", "Warehouse A", etc.
+  latitude      Decimal  @db.Decimal(10, 7)
+  longitude     Decimal  @db.Decimal(10, 7)
+  radius        Int      @default(100) // meters
+  isActive      Boolean  @default(true)
+  isLocked      Boolean  @default(false) // Lock/unlock geolocation for check-in
+  branchId      String?
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("geolocation_configs")
+}
+
+// ─── Leave Management ───────────────────────────────────────────────────────
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  PERSONAL
+  MATERNITY
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Leave {
+  id          String       @id @default(cuid())
+  employeeId  String
+  employee    Employee     @relation(fields: [employeeId], references: [id])
+  type        LeaveType
+  status      LeaveStatus  @default(PENDING)
+  startDate   DateTime     @db.Date
+  endDate     DateTime     @db.Date
+  totalDays   Int
+  reason      String?      @db.Text
+  approvedById String?
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("leaves")
+}
+
+model LeaveBalance {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  year       Int
+  annual     Int       @default(12)
+  sick       Int       @default(14)
+  personal   Int       @default(0)
+  usedAnnual Int       @default(0)
+  usedSick   Int       @default(0)
+  usedPersonal Int     @default(0)
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([employeeId, year])
+  @@map("leave_balances")
+}
+
+// ─── Shift Management ───────────────────────────────────────────────────────
+
+model Shift {
+  id        String   @id @default(cuid())
+  name      String
+  startTime String   // "08:00"
+  endTime   String   // "17:00"
+  tolerance Int      @default(15) // minutes
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeShifts EmployeeShift[]
+
+  @@map("shifts")
+}
+
+model EmployeeShift {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  shiftId    String
+  shift      Shift    @relation(fields: [shiftId], references: [id])
+  dayOfWeek  Int      // 0=Sunday, 1=Monday, etc.
+  isActive   Boolean  @default(true)
+  startDate  DateTime @db.Date
+  endDate    DateTime? @db.Date
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, shiftId, dayOfWeek, startDate])
+  @@map("employee_shifts")
+}
+
+// ─── Stock Adjustments (Approval Workflow) ────────────────────────────────
+
+enum AdjustmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model StockAdjustment {
+  id                String           @id @default(cuid())
+  adjustmentNumber  String           @unique
+  productId         String
+  product           Product          @relation(fields: [productId], references: [id])
+  warehouseId       String
+  warehouse         Warehouse        @relation(fields: [warehouseId], references: [id])
+  previousQty       Int
+  newQty            Int
+  difference        Int              // newQty - previousQty (negative = decrease)
+  reason            String           @db.Text
+  photoEvidence     String?          @db.Text
+  status            AdjustmentStatus @default(PENDING)
+  requestedById     String
+  requestedBy       User             @relation("RequestedAdjustments", fields: [requestedById], references: [id])
+  approvedById      String?
+  approvedBy        User?            @relation("ApprovedAdjustments", fields: [approvedById], references: [id])
+  approvedAt        DateTime?
+  rejectionReason   String?          @db.Text
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@map("stock_adjustments")
+}
+
+// ─── Phase 6: Notifications ────────────────────────────────────────────────
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String?
+  type        String   // "stale_status", "low_stock", "po_approval", "stock_request", "system"
+  title       String
+  message     String?  @db.Text
+  entityType  String?  // "sale", "purchase_order", "stock_request", "order_tracking"
+  entityId    String?
+  isRead      Boolean  @default(false)
+  thresholdDays Int?   @default(3) // Customizable threshold for stale status
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+
+  @@map("notifications")
+}
+
+// ─── Role-Based Access Control ───────────────────────────────────────────────
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  isSystem    Boolean      @default(false)
+  merchantId  String
+  merchant    Merchant     @relation(fields: [merchantId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@unique([name, merchantId])
+  @@map("roles")
+}
+
+model RolePermission {
+  id        String  @id @default(cuid())
+  roleId    String
+  role      Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  feature   String  // "dashboard", "products", "inventory", "warehouses", "procurement", "sales", "branches", "accounting", "employees", "payroll", "tracking", "reports", "settings", "users_roles"
+  canView   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canEdit   Boolean @default(false)
+  canDelete Boolean @default(false)
+
+  // Tracking-specific: per-status permissions (JSON map of status → boolean)
+  // e.g. { "pending": true, "packaging": true, "packed": false, "handover": false, "delivered": false }
+  trackingStatusPermissions Json?
+
+  @@unique([roleId, feature])
+  @@map("role_permissions")
+}
+
+// ─── Activity Log ───────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // "create", "update", "delete", "login", "export"
+  entity    String   // "product", "sale", "purchase_order", etc.
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("activity_logs")
+}
