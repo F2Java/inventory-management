@@ -5,7 +5,7 @@ import Link from "next/link"
 import {
   Search, Filter, Plus, Loader2, AlertTriangle, Warehouse as WarehouseIcon,
   Camera, X, CheckCircle2, XCircle, Clock, Image as ImageIcon,
-  ShoppingCart, FileText, Save, Pencil, ArrowLeftRight, Merge,
+  ShoppingCart, FileText, Save, Pencil, ArrowLeftRight, Merge, ArrowRight, Building2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -87,6 +87,61 @@ export default function InventoryPage() {
   const [editingThreshold, setEditingThreshold] = useState<string | null>(null)
   const [editMin, setEditMin] = useState("")
   const [editMax, setEditMax] = useState("")
+
+  // ─── Transfer Modal ───────────────────────────────────────────────────────
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [transferItem, setTransferItem] = useState<StockItem | null>(null)
+  const [transferToWarehouse, setTransferToWarehouse] = useState("")
+  const [transferQty, setTransferQty] = useState("")
+  const [transferNotes, setTransferNotes] = useState("")
+  const [transferring, setTransferring] = useState(false)
+  const [transferError, setTransferError] = useState("")
+  const [transferSuccess, setTransferSuccess] = useState<string | null>(null)
+
+  const openTransfer = (item: StockItem) => {
+    setTransferItem(item)
+    setTransferToWarehouse("")
+    setTransferQty(item.quantity.toString())
+    setTransferNotes("")
+    setTransferError("")
+    setTransferSuccess(null)
+    setShowTransferModal(true)
+  }
+
+  const handleTransfer = async () => {
+    if (!transferItem) return
+    if (!transferToWarehouse) { setTransferError("Please select a destination warehouse"); return }
+    const qty = parseInt(transferQty)
+    if (!qty || qty < 1) { setTransferError("Quantity must be at least 1"); return }
+    if (qty > transferItem.quantity) { setTransferError(`Insufficient stock. Available: ${transferItem.quantity}`); return }
+
+    setTransferring(true)
+    setTransferError("")
+
+    try {
+      const res = await fetch("/api/inventory/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: transferItem.product.id,
+          fromWarehouseId: transferItem.warehouse.id,
+          toWarehouseId: transferToWarehouse,
+          quantity: qty,
+          notes: transferNotes || undefined,
+        }),
+      })
+
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Transfer failed")
+
+      setTransferSuccess(json.data?.message || "Transfer successful")
+      loadData()
+    } catch (err: any) {
+      setTransferError(err.message)
+    } finally {
+      setTransferring(false)
+    }
+  }
 
   // ─── Convert UoM Modal ───────────────────────────────────────────────────
   const [showConvertModal, setShowConvertModal] = useState(false)
@@ -544,6 +599,9 @@ export default function InventoryPage() {
                       <TableCell><Badge variant="status" status={status.status}>{status.label}</Badge></TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="h-8 text-xs text-indigo-600" onClick={() => openTransfer(item)} title="Transfer to another warehouse">
+                            <ArrowRight className="h-3.5 w-3.5 mr-1" /> Transfer
+                          </Button>
                           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => openConvertModal(item)} title="Convert UoM">
                             <ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> UoM
                           </Button>
@@ -568,6 +626,112 @@ export default function InventoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ─── Transfer Modal ──────────────────────────────────────────────────── */}
+      {showTransferModal && transferItem && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => !transferring && setShowTransferModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <ArrowRight className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Transfer Stock</h3>
+                <p className="text-sm text-gray-500">{transferItem.product.name} · {transferItem.warehouse.name}</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500">Current Stock</p>
+                  <p className="text-lg font-bold text-gray-900">{transferItem.quantity} {transferItem.product.unit}</p>
+                </div>
+                <div className="text-xs text-gray-400 font-mono">{transferItem.product.sku}</div>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Building2 className="h-4 w-4 text-gray-400" />
+                <span>{transferItem.warehouse.name} ({transferItem.warehouse.code})</span>
+                <ArrowRight className="h-4 w-4 text-indigo-400 mx-1" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                Destination Warehouse <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={transferToWarehouse}
+                onChange={(e) => setTransferToWarehouse(e.target.value)}
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select warehouse...</option>
+                {warehouses
+                  .filter((w) => w.value !== "" && w.value !== transferItem.warehouse.id)
+                  .map((w) => (
+                    <option key={w.value} value={w.value}>{w.label}</option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                Quantity to Transfer <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={transferItem.quantity}
+                  value={transferQty}
+                  onChange={(e) => setTransferQty(e.target.value)}
+                  className="flex-1"
+                />
+                <span className="text-sm text-gray-500">/ {transferItem.quantity} available</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Notes <span className="text-xs text-gray-400 font-normal">(optional)</span></label>
+              <textarea
+                className="flex min-h-16 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="e.g., Reallocating stock for regional demand"
+                value={transferNotes}
+                onChange={(e) => setTransferNotes(e.target.value)}
+              />
+            </div>
+
+            {transferError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">{transferError}</div>
+            )}
+            {transferSuccess && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-sm flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" /> {transferSuccess}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowTransferModal(false)} disabled={transferring}>
+                {transferSuccess ? "Close" : "Cancel"}
+              </Button>
+              {!transferSuccess && (
+                <Button
+                  onClick={handleTransfer}
+                  disabled={transferring || !transferToWarehouse || !transferQty}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {transferring ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                  {transferring ? "Transferring..." : "Transfer Stock"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Convert UoM Modal ──────────────────────────────────────────────── */}
       {showConvertModal && convertStock && (

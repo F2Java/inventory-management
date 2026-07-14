@@ -317,3 +317,261 @@
  GET /api/notifications?unread=true 200 in 60ms (next.js: 8ms, proxy.ts: 27ms, application-code: 25ms)
  GET /api/notifications?unread=true 200 in 62ms (next.js: 9ms, proxy.ts: 30ms, application-code: 24ms)
   Reload env: .env
+⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+▲ Next.js 16.2.10 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.255.255.254:3000
+- Environments: .env
+✓ Ready in 1013ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/melon/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/melon/claude-code/inventory-management/package-lock.json
+
+
+  Reload env: .env.local
+Persisting failed: Unable to write SST file 00000303.sst
+
+Caused by:
+    No such file or directory (os error 2)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+⨯ Error: Cannot find module '/home/melon/claude-code/inventory-management/.next/dev/server/middleware-manifest.json'
+Require stack:
+- /home/melon/claude-code/inventory-management/node_modules/next/dist/server/next-server.js
+- /home/melon/claude-code/inventory-management/node_modules/next/dist/server/dev/next-dev-server.js
+- /home/melon/claude-code/inventory-management/node_modules/next/dist/server/next.js
+- /home/melon/claude-code/inventory-management/node_modules/next/dist/server/lib/start-server.js
+    at ignore-listed frames {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/melon/claude-code/inventory-management/node_modules/next/dist/server/next-server.js',
+    '/home/melon/claude-code/inventory-management/node_modules/next/dist/server/dev/next-dev-server.js',
+    '/home/melon/claude-code/inventory-management/node_modules/next/dist/server/next.js',
+    '/home/melon/claude-code/inventory-management/node_modules/next/dist/server/lib/start-server.js'
+  ]
+}
+
+thread 'tokio-runtime-worker' (664340) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17:
+Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Caused by:
+    0: Looking up task storage for TaskId 1493 from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'tokio-runtime-worker' (633572) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17:
+Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Caused by:
+    0: Looking up task storage for TaskId 1493 from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /tmp/next-panic-2f2be93b018caf39cea51b8c39c7314d.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20restore%20task%20data%20%28corrupted%20database%20or%20bug%29%3A%20Meta%20for%20TaskId%201493%29&body=Turbopack%20version%3A%20%60v16.2.10%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20restore%20task%20data%20%28corrupted%20database%20or%20bug%29%3A%20Meta%20for%20TaskId%201493%29%0A%0ADebug%20info%3A%0A-%20Execution%20of%20get_written_endpoint_with_issues_operation%20failed%0A-%20Failed%20to%20restore%20task%20data%20%28corrupted%20database%20or%20bug%29%3A%20Meta%20for%20TaskId%201493%29%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Looking%20up%20task%20storage%20for%20TaskId%201493%20from%20database%20failed%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000000229.meta%0A%20%20%20%20%20%202%3A%20Unable%20to%20open%20static%20sorted%20file%2000000227.sst%0A%20%20%20%20%20%203%3A%20Failed%20to%20open%20SST%20file%20%2Fhome%2Fmelon%2Fclaude-code%2Finventory-management%2F.next%2Fdev%2Fcache%2Fturbopack%2Fv16.2.10%2F00000227.sst%0A%20%20%20%20%20%204%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+⨯ Error [TurbopackInternalError]: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Debug info:
+- Execution of get_written_endpoint_with_issues_operation failed
+- Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+  
+  Caused by:
+      0: Looking up task storage for TaskId 1493 from database failed
+      1: Unable to open static sorted file referenced from 00000229.meta
+      2: Unable to open static sorted file 00000227.sst
+      3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+      4: No such file or directory (os error 2)
+    at <unknown> (TurbopackInternalError: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)) {
+  location: 'turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17'
+}
+Error [TurbopackInternalError]: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Debug info:
+- Execution of get_written_endpoint_with_issues_operation failed
+- Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+  
+  Caused by:
+      0: Looking up task storage for TaskId 1493 from database failed
+      1: Unable to open static sorted file referenced from 00000229.meta
+      2: Unable to open static sorted file 00000227.sst
+      3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+      4: No such file or directory (os error 2)
+    at <unknown> (TurbopackInternalError: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)) {
+  location: 'turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17'
+}
+⨯ Error [TurbopackInternalError]: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Debug info:
+- Execution of get_written_endpoint_with_issues_operation failed
+- Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+  
+  Caused by:
+      0: Looking up task storage for TaskId 1493 from database failed
+      1: Unable to open static sorted file referenced from 00000229.meta
+      2: Unable to open static sorted file 00000227.sst
+      3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+      4: No such file or directory (os error 2)
+    at <unknown> (TurbopackInternalError: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)) {
+  location: 'turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17'
+}
+Error [TurbopackInternalError]: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Debug info:
+- Execution of get_written_endpoint_with_issues_operation failed
+- Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+  
+  Caused by:
+      0: Looking up task storage for TaskId 1493 from database failed
+      1: Unable to open static sorted file referenced from 00000229.meta
+      2: Unable to open static sorted file 00000227.sst
+      3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+      4: No such file or directory (os error 2)
+    at <unknown> (TurbopackInternalError: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)) {
+  location: 'turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17'
+}
+⨯ Error [TurbopackInternalError]: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Debug info:
+- Execution of get_written_endpoint_with_issues_operation failed
+- Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+  
+  Caused by:
+      0: Looking up task storage for TaskId 1493 from database failed
+      1: Unable to open static sorted file referenced from 00000229.meta
+      2: Unable to open static sorted file 00000227.sst
+      3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+      4: No such file or directory (os error 2)
+    at <unknown> (TurbopackInternalError: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)) {
+  location: 'turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17'
+}
+Error [TurbopackInternalError]: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+
+Debug info:
+- Execution of get_written_endpoint_with_issues_operation failed
+- Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)
+  
+  Caused by:
+      0: Looking up task storage for TaskId 1493 from database failed
+      1: Unable to open static sorted file referenced from 00000229.meta
+      2: Unable to open static sorted file 00000227.sst
+      3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+      4: No such file or directory (os error 2)
+    at <unknown> (TurbopackInternalError: Failed to restore task data (corrupted database or bug): Meta for TaskId 1493)) {
+  location: 'turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17'
+}
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (689133) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17:
+Failed to restore task data (corrupted database or bug): Meta for TaskId 77166)
+
+Caused by:
+    0: Looking up task storage for TaskId 77166 from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (689133) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17:
+Failed to restore task data (corrupted database or bug): Meta for TaskId 77166)
+
+Caused by:
+    0: Looking up task storage for TaskId 77166 from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (653506) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:225:17:
+Failed to restore task data (corrupted database or bug): Meta for batch of 3 tasks
+
+Caused by:
+    0: Looking up typed data for 3 tasks from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (653506) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:225:17:
+Failed to restore task data (corrupted database or bug): Meta for batch of 3 tasks
+
+Caused by:
+    0: Looking up typed data for 3 tasks from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (653506) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17:
+Failed to restore task data (corrupted database or bug): Meta for TaskId 77171)
+
+Caused by:
+    0: Looking up task storage for TaskId 77171 from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (653506) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:197:17:
+Failed to restore task data (corrupted database or bug): Meta for TaskId 77171)
+
+Caused by:
+    0: Looking up task storage for TaskId 77171 from database failed
+    1: Unable to open static sorted file referenced from 00000229.meta
+    2: Unable to open static sorted file 00000227.sst
+    3: Failed to open SST file /home/melon/claude-code/inventory-management/.next/dev/cache/turbopack/v16.2.10/00000227.sst
+    4: No such file or directory (os error 2)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
