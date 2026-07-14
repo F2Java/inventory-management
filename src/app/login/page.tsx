@@ -64,9 +64,9 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome back</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome back!</h2>
           <p className="text-gray-500 mb-8">
-            Sign in to your account to continue
+            Sign in with your Merchant Code to continue
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
