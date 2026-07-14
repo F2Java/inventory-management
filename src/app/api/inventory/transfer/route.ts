@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { auth, requirePermission } from "@/lib/auth"
+import { pushStockUpdateToPlatforms } from "@/lib/ecommerce/stock-sync"
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -111,6 +112,12 @@ export async function POST(req: NextRequest) {
 
       return { reference, fromName: fromWarehouse.name, toName: toWarehouse.name, qty }
     })
+
+    // ─── Auto-sync stock to connected e-commerce platforms ────────────
+    // Push update after transfer so Tokopedia/Shopee reflects new stock levels
+    pushStockUpdateToPlatforms(productId).catch((err) =>
+      console.error(`E-commerce sync failed after transfer: ${err.message}`)
+    )
 
     return NextResponse.json({
       success: true,
