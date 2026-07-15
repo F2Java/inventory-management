@@ -77,6 +77,14 @@ const ALL_MENU_ITEMS: MenuItem[] = [
   },
   { feature: "branches", label: "Branches", href: "/branches", icon: <Building2 className="h-5 w-5" /> },
   {
+    feature: "invoicing", label: "Invoicing", href: "/invoicing", icon: <FileText className="h-5 w-5" />,
+    submenu: [
+      { label: "All Invoices", href: "/invoicing" },
+      { label: "Aging Report", href: "/invoicing/aging" },
+    ],
+  },
+  { feature: "customers", label: "B2B Customers", href: "/invoicing/customers", icon: <Users className="h-5 w-5" /> },
+  {
     feature: "accounting", label: "Accounting", href: "/accounting", icon: <DollarSign className="h-5 w-5" />,
     submenu: [
       { label: "Chart of Accounts", href: "/accounting/chart-of-accounts" },

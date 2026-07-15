@@ -16,6 +16,8 @@ export type Feature =
   | "sales"
   | "branches"
   | "accounting"
+  | "invoicing"
+  | "customers"
   | "employees"
   | "payroll"
   | "tracking"
@@ -48,6 +50,8 @@ export const ALL_FEATURES: Feature[] = [
   "sales",
   "branches",
   "accounting",
+  "invoicing",
+  "customers",
   "employees",
   "payroll",
   "tracking",
@@ -146,6 +150,8 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   sales: "Sales",
   branches: "Branches",
   accounting: "Accounting",
+  invoicing: "Invoicing",
+  customers: "B2B Customers",
   employees: "Employees",
   payroll: "Payroll",
   tracking: "Tracking",

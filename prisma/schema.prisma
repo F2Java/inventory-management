@@ -119,6 +119,7 @@ model Merchant {
   warehouses   Warehouse[]
   taxSettings  TaxSetting[]
   currencies   CurrencyConfig[]
+  b2bCustomers B2BCustomer[]
 
   @@map("merchants")
 }
@@ -145,6 +146,7 @@ model Branch {
   sales             Sale[]
   geolocationConfigs GeolocationConfig[]
   purchaseOrders    PurchaseOrder[]
+  b2bOrders          B2BOrder[]
 
   @@map("branches")
 }
@@ -250,6 +252,7 @@ model Product {
   orderTrackings       OrderTracking[]
   stockRequestItems   StockRequestItem[]
   stockAdjustments    StockAdjustment[]
+  b2bOrderItems        B2BOrderItem[]
 
   // ─── Phase 1 additions ────────────────────────────────────────────────
   uoms                 ProductUom[]
@@ -811,7 +814,7 @@ model Journal {
   description String?  @db.Text
   date        DateTime
   reference   String?  // Reference to source document (PO#, Sale#, etc.)
-  referenceType String? // "sale", "purchase", "adjustment", "payroll", "expense"
+  referenceType String? // "sale", "purchase", "adjustment", "payroll", "expense", "invoice", "payment"
   referenceId String?
   notes       String?  @db.Text
   postedAt    DateTime?
@@ -822,6 +825,7 @@ model Journal {
   entries     JournalEntry[]
   expenses    Expense[]
   payrolls    Payroll[]
+  invoices    Invoice[]
 
   @@map("journals")
 }
@@ -1194,6 +1198,174 @@ model RolePermission {
 
   @@unique([roleId, feature])
   @@map("role_permissions")
+}
+
+// ─── B2B E-Commerce ──────────────────────────────────────────────────────────
+
+enum B2BCustomerStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+model B2BCustomer {
+  id              String            @id @default(cuid())
+  code            String            @unique
+  companyName     String
+  contactPerson   String
+  email           String            @unique
+  phone           String?
+  passwordHash    String
+  billingAddress  String?           @db.Text
+  shippingAddress String?           @db.Text
+  taxId           String?
+  paymentTerms    String            @default("net30") // "net15", "net30", "net45", "net60", "cod"
+  creditLimit     Decimal           @default(0) @db.Decimal(15, 2)
+  currentBalance  Decimal           @default(0) @db.Decimal(15, 2)
+  priceLevel      String?           // For future tiered pricing
+  notes           String?           @db.Text
+  status          B2BCustomerStatus @default(PENDING)
+  merchantId      String?
+  merchant        Merchant?         @relation(fields: [merchantId], references: [id])
+  createdById     String?
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  orders          B2BOrder[]
+  invoices        Invoice[]
+
+  @@map("b2b_customers")
+}
+
+enum B2BOrderStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model B2BOrder {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  customerId      String
+  customer        B2BCustomer   @relation(fields: [customerId], references: [id])
+  status          B2BOrderStatus @default(PENDING)
+  shippingAddress String?       @db.Text
+  notes           String?       @db.Text
+  subtotal        Decimal       @default(0) @db.Decimal(15, 2)
+  discountAmount  Decimal       @default(0) @db.Decimal(15, 2)
+  taxAmount       Decimal       @default(0) @db.Decimal(15, 2)
+  shippingCost    Decimal       @default(0) @db.Decimal(15, 2)
+  totalAmount     Decimal       @default(0) @db.Decimal(15, 2)
+  paymentTerms    String        @default("net30")
+  invoiceId       String?       @unique
+  branchId        String?
+  branch          Branch?       @relation(fields: [branchId], references: [id])
+  confirmedById   String?
+  confirmedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           B2BOrderItem[]
+  invoice         Invoice?      @relation("B2BOrderInvoice", fields: [invoiceId], references: [id])
+
+  @@map("b2b_orders")
+}
+
+model B2BOrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     B2BOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Decimal  @default(0) @db.Decimal(15, 2)
+  totalPrice Decimal @default(0) @db.Decimal(15, 2)
+
+  @@map("b2b_order_items")
+}
+
+// ─── Invoicing & Receivables ────────────────────────────────────────────────
+
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+  VOID
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  customerId      String?
+  customer        B2BCustomer?  @relation(fields: [customerId], references: [id])
+  orderId         String?       @unique
+  order           B2BOrder?     @relation("B2BOrderInvoice")
+  saleId          String?       // Can also invoice internal sales
+  invoiceDate     DateTime      @default(now())
+  dueDate         DateTime
+  status          InvoiceStatus @default(PENDING)
+
+  // Financials
+  subtotal        Decimal       @default(0) @db.Decimal(15, 2)
+  discountAmount  Decimal       @default(0) @db.Decimal(15, 2)
+  taxAmount       Decimal       @default(0) @db.Decimal(15, 2)
+  shippingCost    Decimal       @default(0) @db.Decimal(15, 2)
+  totalAmount     Decimal       @default(0) @db.Decimal(15, 2)
+  amountPaid      Decimal       @default(0) @db.Decimal(15, 2)
+  balanceDue      Decimal       @default(0) @db.Decimal(15, 2)
+
+  currency        String        @default("IDR")
+  notes           String?       @db.Text
+  terms           String?       @db.Text
+
+  // Accounting
+  postedToJournal Boolean       @default(false)
+  journalId       String?
+  journal         Journal?      @relation(fields: [journalId], references: [id])
+
+  createdById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  payments        InvoicePayment[]
+
+  @@map("invoices")
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CARD
+  MIDTRANS
+  XENDIT
+  GIRO
+  OTHER
+}
+
+model InvoicePayment {
+  id              String        @id @default(cuid())
+  paymentNumber   String        @unique
+  invoiceId       String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id])
+  amount          Decimal       @default(0) @db.Decimal(15, 2)
+  paymentDate     DateTime      @default(now())
+  paymentMethod   PaymentMethod @default(BANK_TRANSFER)
+  referenceNumber String?       // Bank transaction ref / payment gateway tx ID
+  bankName        String?       // Source bank name
+  notes           String?       @db.Text
+  receivedById    String?
+  postedToJournal Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+
+  @@map("invoice_payments")
 }
 
 // ─── Activity Log ───────────────────────────────────────────────────────────
